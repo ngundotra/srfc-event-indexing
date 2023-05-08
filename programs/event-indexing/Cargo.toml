@@ -16,4 +16,4 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = "0.27.0"
+anchor-lang = { git = "https://github.com/ngundotra/anchor", branch = "events"}
