@@ -20,8 +20,25 @@ Cross-Program Invocations (CPIs) have a more explicit pricing curve, and are mor
 
 ## Specification: CPI Events
 
-Executing a transfer requires three things
+Before indexing information in a CPI, a valid CPI event must pass four checks:
 
-<!-- GIve a short summary of the SRFC and why it is needed -->
+1. The currently executing instruction's data must begin with the following 8 bytes: [0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d].
+
+2. The previously executed instruction's program ID must match the current instruction's program ID.
+
+3. The first account meta that is passed to the currently executing instruction must be a PDA with seeds [b"__event_authority"] and derived from its program ID
+
+4. The currently executing instruction's program must have an Anchor IDL that contains an "event" that can be deserialized from the currently executing instruction's data.
+
+For programs to be able to store information in CPIs, they must implement the following on-chain checks:
+
+1. If the current instruction begins with the following 8 bytes: [0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d], then it must be interpreted as a CPI event.
+
+2. The current instruction is a CPI event, the first account meta must be a PDA with seeds [b"__event_authority"] and derived from its program ID, and it must be a `signer`, otherwise the program execution should fail.
+
 
 **Implementation**: <!-- link to implementation/documentation/PoC -->
+
+For off-chain indexing implementation, please inspect `tests/event-indexing.ts`. 
+
+For on-chain implementation, please inspect `programs/event-indexing/src/lib.rs`.

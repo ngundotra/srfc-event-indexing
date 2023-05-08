@@ -13,11 +13,9 @@ function validateEvent(
   previousProgram: anchor.web3.PublicKey,
   currentProgram: anchor.web3.PublicKey,
   eventAuthority: anchor.web3.PublicKey,
+  eventCoder: anchor.EventCoder,
   ixData: Buffer
-) {
-  // CHECK 0: The current program must have an Anchor IDL
-  //          associated with it (implicit)
-
+): anchor.Event {
   // CHECK 1: Event tag
   let eventTag = Buffer.from(
     [0x1d, 0x9a, 0xcb, 0x51, 0x2e, 0xa5, 0x45, 0xe4].reverse()
@@ -41,6 +39,14 @@ function validateEvent(
   if (expectedAuthority.toString() !== eventAuthority.toString()) {
     throw new Error("Invalid CPI Event: Event authority does not match");
   }
+
+  // CHECK 4: The current program must have an Anchor IDL
+  //          associated with it (implicit)
+  let event = eventCoder.decode(base64.encode(ixData.slice(8)));
+  if (!event) {
+    throw new Error("Invalid CPI Event: Failed to decode event");
+  }
+  return event;
 }
 
 function handleTransaction(response: anchor.web3.VersionedTransactionResponse) {
@@ -62,9 +68,14 @@ function handleTransaction(response: anchor.web3.VersionedTransactionResponse) {
       let currentProgram = accounts[instruction.programIdIndex];
       let eventAuthority = accounts[instruction.accounts[0]];
       try {
-        validateEvent(previousProgram, currentProgram, eventAuthority, bytes);
+        let event = validateEvent(
+          previousProgram,
+          currentProgram,
+          eventAuthority,
+          eventCoder,
+          bytes
+        );
 
-        let event = eventCoder.decode(base64.encode(bytes.slice(8)));
         handleEvent(currentProgram, event);
       } catch (err) {
         console.error(err);
@@ -81,7 +92,7 @@ describe("event-indexing", () => {
 
   const program = anchor.workspace.EventIndexing as Program<EventIndexing>;
 
-  it("Is initialized!", async () => {
+  it("Can identify a transfer event", async () => {
     // Add your test here.
     const tx = await program.methods
       .transfer()
@@ -92,7 +103,7 @@ describe("event-indexing", () => {
       })
       .rpc({ skipPreflight: true, commitment: "confirmed" });
 
-    console.log("Your transaction signature", tx);
+    console.log("Transaction signature", tx);
     let transactionDetails = await program.provider.connection.getTransaction(
       tx,
       { maxSupportedTransactionVersion: 0, commitment: "confirmed" }
